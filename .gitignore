@@ -1,0 +1,11 @@
+venv/
+__pycache__/
+*.pyc
+.env
+.streamlit/secrets.toml
+Production_Data/
+data/*.xlsx
+data/*.parquet
+backend/vidyutiq.db
+node_modules/
+frontend/dist/
