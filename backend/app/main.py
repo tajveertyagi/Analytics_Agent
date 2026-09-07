@@ -7,7 +7,7 @@ from app.config import CORS_ORIGINS
 from app.data_cache import warm_cache
 from app.db import init_db
 from app.deps import get_current_user_id
-from app.routers import chat, sessions
+from app.routers import chat, files, sessions
 from app.schemas import MeOut
 
 
@@ -30,6 +30,7 @@ app.add_middleware(
 
 app.include_router(sessions.router)
 app.include_router(chat.router)
+app.include_router(files.router)
 
 
 @app.get("/api/me", response_model=MeOut)

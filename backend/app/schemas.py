@@ -31,3 +31,15 @@ class SendMessageIn(BaseModel):
 
 class MeOut(BaseModel):
     user_id: str
+
+
+class FileOut(BaseModel):
+    id: str
+    filename: str
+    content_type: str
+    size_bytes: int
+    truncated: bool
+    created_at: datetime
+
+    class Config:
+        from_attributes = True

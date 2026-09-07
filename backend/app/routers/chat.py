@@ -37,6 +37,14 @@ def send_message(
     history = [{"role": m.role, "content": m.content} for m in session.messages]
     is_first_message = len(history) == 0
 
+    uploaded_context = None
+    if session.files:
+        parts = []
+        for f in session.files:
+            note = " (truncated -- preview only, not the full document)" if f.truncated else ""
+            parts.append(f"## {f.filename}{note}\n{f.extracted_text}")
+        uploaded_context = "\n\n".join(parts)
+
     if not question:
         def empty_stream():
             yield _sse("error", {"message": "Empty message"})
@@ -54,7 +62,7 @@ def send_message(
         final_answer = ""
         final_charts: list[dict] = []
         try:
-            for event in stream_ask(question, losses, theft, chat_history=history):
+            for event in stream_ask(question, losses, theft, chat_history=history, uploaded_context=uploaded_context):
                 if event["type"] == "token":
                     yield _sse("token", {"text": event["text"]})
                 elif event["type"] == "tool_result":

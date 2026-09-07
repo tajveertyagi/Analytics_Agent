@@ -58,6 +58,18 @@ If unsure, call more than one tool rather than repurpose a result from the \
 wrong level.
 """
 
+UPLOADED_DOCS_SYSTEM_TEMPLATE = """The user has attached the following document(s) to this \
+conversation (CSV/Excel/Word/PowerPoint). Their content -- or a bounded preview, marked \
+"truncated" below if the full document didn't fit -- is included here. Answer questions \
+about these documents directly from this content; don't use the DISCOM analytics tools \
+for them, and don't mix their content up with the DISCOM loss/theft datasets. For a \
+truncated spreadsheet, the numeric summary and row preview may not cover the whole file --\
+say so rather than presenting a preview-based figure as an exact total. If a question \
+isn't answerable from what's shown, say so rather than guessing.
+
+{context}
+"""
+
 MAX_TOOL_ROUNDS = 4
 
 
@@ -87,10 +99,20 @@ def _build_system_prompt(losses, theft) -> str:
     )
 
 
-def stream_ask(question: str, losses, theft, chat_history: list[dict] | None = None) -> Iterator[dict]:
-    """chat_history: list of {"role": "user"|"assistant", "content": str} from prior turns."""
+def stream_ask(
+    question: str,
+    losses,
+    theft,
+    chat_history: list[dict] | None = None,
+    uploaded_context: str | None = None,
+) -> Iterator[dict]:
+    """chat_history: list of {"role": "user"|"assistant", "content": str} from prior turns.
+    uploaded_context: concatenated extracted text of files attached to this session, if any.
+    """
     client = _get_client()
     messages = [{"role": "system", "content": _build_system_prompt(losses, theft)}]
+    if uploaded_context:
+        messages.append({"role": "system", "content": UPLOADED_DOCS_SYSTEM_TEMPLATE.format(context=uploaded_context)})
     if chat_history:
         messages.extend(chat_history)
     messages.append({"role": "user", "content": question})

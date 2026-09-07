@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useLayoutEffect, useRef } from "react";
 import { useChat } from "../hooks/useChat";
+import { useFiles } from "../hooks/useFiles";
 import MessageBubble from "./MessageBubble";
 import ChatInput from "./ChatInput";
 
@@ -11,6 +12,7 @@ export default function ChatWindow({
   onFirstMessage?: () => void;
 }) {
   const { messages, send, sending } = useChat(sessionId, onFirstMessage);
+  const { files, upload, remove, uploading, error: fileError } = useFiles(sessionId);
   const scrollRef = useRef<HTMLDivElement>(null);
   const contentRef = useRef<HTMLDivElement>(null);
   // Stick to the bottom only while the user hasn't scrolled up to read history.
@@ -99,7 +101,15 @@ export default function ChatWindow({
           ))}
         </div>
       </div>
-      <ChatInput onSend={send} disabled={sending} />
+      <ChatInput
+        onSend={send}
+        disabled={sending}
+        files={files}
+        uploading={uploading}
+        fileError={fileError}
+        onUpload={upload}
+        onRemove={remove}
+      />
     </div>
   );
 }

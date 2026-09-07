@@ -37,6 +37,9 @@ class ChatSession(Base):
     messages: Mapped[list["ChatMessage"]] = relationship(
         back_populates="session", cascade="all, delete-orphan", order_by="ChatMessage.id"
     )
+    files: Mapped[list["UploadedFile"]] = relationship(
+        back_populates="session", cascade="all, delete-orphan", order_by="UploadedFile.created_at"
+    )
 
 
 class ChatMessage(Base):
@@ -50,3 +53,18 @@ class ChatMessage(Base):
     created_at: Mapped[datetime] = mapped_column(default=_now)
 
     session: Mapped["ChatSession"] = relationship(back_populates="messages")
+
+
+class UploadedFile(Base):
+    __tablename__ = "uploaded_files"
+
+    id: Mapped[str] = mapped_column(primary_key=True, default=_uuid)
+    session_id: Mapped[str] = mapped_column(ForeignKey("chat_sessions.id"), index=True)
+    filename: Mapped[str] = mapped_column()
+    content_type: Mapped[str] = mapped_column()
+    size_bytes: Mapped[int] = mapped_column()
+    extracted_text: Mapped[str] = mapped_column(Text)  # bounded preview fed to the LLM as context
+    truncated: Mapped[bool] = mapped_column(default=False)
+    created_at: Mapped[datetime] = mapped_column(default=_now)
+
+    session: Mapped["ChatSession"] = relationship(back_populates="files")

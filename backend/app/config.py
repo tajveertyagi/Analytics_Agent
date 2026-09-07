@@ -20,3 +20,5 @@ CORS_ORIGINS = os.getenv("CORS_ORIGINS", "http://localhost:5173,http://127.0.0.1
 
 USER_COOKIE_NAME = "vidyutiq_uid"
 TOOL_CACHE_TTL_SECONDS = 300
+
+MAX_UPLOAD_BYTES = 20 * 1024 * 1024  # 20 MB

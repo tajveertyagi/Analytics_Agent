@@ -43,6 +43,38 @@ export function deleteSession(sessionId: string) {
   return jsonFetch<{ ok: boolean }>(`/sessions/${sessionId}`, { method: "DELETE" });
 }
 
+export interface UploadedFileOut {
+  id: string;
+  filename: string;
+  content_type: string;
+  size_bytes: number;
+  truncated: boolean;
+  created_at: string;
+}
+
+export function listFiles(sessionId: string) {
+  return jsonFetch<UploadedFileOut[]>(`/sessions/${sessionId}/files`);
+}
+
+export async function uploadFile(sessionId: string, file: File): Promise<UploadedFileOut> {
+  const form = new FormData();
+  form.append("file", file);
+  const res = await fetch(`${BASE}/sessions/${sessionId}/files`, {
+    method: "POST",
+    credentials: "include",
+    body: form,
+  });
+  if (!res.ok) {
+    const detail = await res.json().catch(() => null);
+    throw new Error(detail?.detail ?? `upload failed: ${res.status}`);
+  }
+  return res.json();
+}
+
+export function deleteFile(sessionId: string, fileId: string) {
+  return jsonFetch<{ ok: boolean }>(`/sessions/${sessionId}/files/${fileId}`, { method: "DELETE" });
+}
+
 export type ChatEvent =
   | { type: "token"; text: string }
   | { type: "tool_result"; tool: string; chart: Record<string, unknown> | null }
