@@ -61,16 +61,23 @@ def send_message(
     def event_generator():
         final_answer = ""
         final_charts: list[dict] = []
+        final_actions: list[dict] = []
         try:
-            for event in stream_ask(question, losses, theft, chat_history=history, uploaded_context=uploaded_context):
+            for event in stream_ask(
+                question, losses, theft,
+                chat_history=history,
+                uploaded_context=uploaded_context,
+                session_id=session_id,
+            ):
                 if event["type"] == "token":
                     yield _sse("token", {"text": event["text"]})
                 elif event["type"] == "tool_result":
-                    yield _sse("tool_result", {"tool": event["tool"], "chart": event["chart"]})
+                    yield _sse("tool_result", {"tool": event["tool"], "chart": event["chart"], "action": event.get("action")})
                 elif event["type"] == "done":
                     final_answer = event["answer"]
                     final_charts = event["charts"]
-                    yield _sse("done", {"answer": final_answer, "charts": final_charts})
+                    final_actions = event.get("actions", [])
+                    yield _sse("done", {"answer": final_answer, "charts": final_charts, "actions": final_actions})
         except Exception as e:
             final_answer = f"Something went wrong: {e}"
             yield _sse("error", {"message": str(e)})
@@ -82,6 +89,7 @@ def send_message(
                 role="assistant",
                 content=final_answer,
                 charts_json=json.dumps(final_charts, cls=PlotlyJSONEncoder) if final_charts else None,
+                actions_json=json.dumps(final_actions) if final_actions else None,
             )
             write_db.add(msg)
             write_db.flush()

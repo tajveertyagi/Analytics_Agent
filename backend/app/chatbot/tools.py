@@ -192,6 +192,37 @@ TOOLS = [
             },
         },
     },
+    {
+        "type": "function",
+        "function": {
+            "name": "generate_report",
+            "description": "Build a downloadable multi-sheet Excel (.xlsx) analytics report for a timeframe (and optional filters): a headline Summary plus sheets for loss by division/DT type, top loss feeders/substations, monthly loss trend, and the theft breakdowns. Loss figures are real; theft figures are synthetic placeholder data. Use when the user asks to download/export/'get me a report'. The UI shows the user a download button -- you cannot email it with this tool (use draft_report_email for that).",
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    **_LOSS_FILTER_PROPS,
+                    "title": {"type": "string", "description": "Optional report title (used in the filename and Summary sheet)."},
+                },
+            },
+        },
+    },
+    {
+        "type": "function",
+        "function": {
+            "name": "draft_report_email",
+            "description": "Prepare a DRAFT email that attaches the Excel analytics report for a timeframe, for the user to review and send. THIS SENDS NOTHING -- it opens an in-app review card where the user checks the recipients, subject and body and clicks Send (human-in-the-loop). Use when the user asks to email/share/send a report. Never tell the user the email was sent; only that a draft is ready for their review.",
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    **_LOSS_FILTER_PROPS,
+                    "recipients": {"type": "array", "items": {"type": "string"}, "description": "Email address(es) the user asked to send to. May be omitted -- the user can fill them in on the card."},
+                    "subject": {"type": "string", "description": "Optional email subject."},
+                    "message": {"type": "string", "description": "Optional email body text."},
+                    "title": {"type": "string", "description": "Optional report title."},
+                },
+            },
+        },
+    },
 ]
 
 

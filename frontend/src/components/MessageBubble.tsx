@@ -2,8 +2,10 @@ import { memo } from "react";
 import ReactMarkdown from "react-markdown";
 import type { UIMessage } from "../hooks/useChat";
 import ChartRenderer from "./ChartRenderer";
+import ReportCard from "./ReportCard";
+import EmailReviewCard from "./EmailReviewCard";
 
-function MessageBubble({ message }: { message: UIMessage }) {
+function MessageBubble({ message, sessionId }: { message: UIMessage; sessionId: string | null }) {
   const isUser = message.role === "user";
 
   return (
@@ -31,6 +33,15 @@ function MessageBubble({ message }: { message: UIMessage }) {
           {message.charts.map((chart, i) => (
             <ChartRenderer key={i} figure={chart} />
           ))}
+
+          {sessionId &&
+            message.actions.map((action, i) =>
+              action.kind === "report" ? (
+                <ReportCard key={`r-${i}`} sessionId={sessionId} reportId={action.report_id} />
+              ) : (
+                <EmailReviewCard key={`e-${i}`} sessionId={sessionId} emailId={action.email_id} />
+              ),
+            )}
         </div>
       </div>
     </div>
@@ -44,9 +55,11 @@ export default memo(MessageBubble, (a, b) => {
   const x = a.message;
   const y = b.message;
   return (
+    a.sessionId === b.sessionId &&
     x.id === y.id &&
     x.content === y.content &&
     x.streaming === y.streaming &&
-    x.charts === y.charts
+    x.charts === y.charts &&
+    x.actions === y.actions
   );
 });

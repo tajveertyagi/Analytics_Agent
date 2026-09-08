@@ -21,17 +21,22 @@ backend/            FastAPI app (Python)
   app/
     main.py            App entrypoint, CORS, startup cache warm
     config.py           Env config
-    db.py / models.py    SQLite via SQLAlchemy: users, chat_sessions, chat_messages
+    db.py / models.py    SQLite via SQLAlchemy: users, chat_sessions, chat_messages, reports, outbound_emails
     deps.py               Anonymous per-browser identity (uid cookie)
     data_cache.py          In-process cache for the two DataFrames (Parquet-backed)
     analytics.py            Pure pandas KPI/aggregation functions
     charts.py                 Plotly figure builders
+    reports.py                Multi-sheet .xlsx report builder (any timeframe)
+    mailer.py                 SMTP wrapper for sending an approved report email
     chatbot/
       tools.py                 LLM tool schemas + dispatcher, TTL-cached
+      actions.py                Side-effecting tools: generate_report / draft_report_email
       agent.py                  Streaming OpenAI tool-calling loop
     routers/
       sessions.py                Session/message CRUD
       chat.py                     SSE streaming chat endpoint
+      files.py                     Attach-a-document upload/list/delete
+      reports.py                    Report download + email draft review/send/cancel
   requirements.txt
 
 frontend/            React + TypeScript + Vite + Tailwind
@@ -39,7 +44,8 @@ frontend/            React + TypeScript + Vite + Tailwind
     api.ts              fetch wrappers + SSE parser
     App.tsx               Layout: Sidebar + ChatWindow
     hooks/useChat.ts        Streaming chat state
-    components/              Sidebar, ChatWindow, MessageBubble, ChartRenderer, ChatInput
+    components/              Sidebar, ChatWindow, MessageBubble, ChartRenderer, ChatInput,
+                             ReportCard (download button), EmailReviewCard (human-in-the-loop send)
 
 scripts/              Data ingestion (unchanged by the FastAPI/React rebuild)
   build_transformer_losses.py   Consolidates Production_Data/*.xlsx -> data/transformer_losses.xlsx
@@ -120,6 +126,28 @@ session list.
 - `chatbot/tools.py::dispatch` is wrapped in a 5-minute TTL cache
   (`cachetools`) keyed by tool name + arguments, so repeated identical
   analytics questions (common across sessions) skip recomputation.
+
+## Reports & email (chat-driven)
+
+Ask Sarthi in chat, e.g. *"download a report for Mar–Jun 2025"* or *"email
+the Q2 loss report for Kasna to ravi@discom.in"*.
+
+- **`generate_report`** builds a multi-sheet Excel workbook for any timeframe
+  (`date_from` / `date_to`) and optional filters (division, feeder,
+  substation, area type, DT type): a Summary sheet plus loss-by-division /
+  by-DT-type, top loss feeders / substations, monthly loss trend, and the
+  theft breakdowns. Real vs. synthetic labelling is carried into the Summary
+  sheet. A **Download** button appears in the chat (`ReportCard`).
+- **`draft_report_email`** only ever *drafts* — it never sends. An
+  `EmailReviewCard` appears with editable recipients / subject / body and the
+  report attached; the email leaves the server only when the user clicks
+  **Send** (human-in-the-loop). Send needs SMTP configured (see
+  `.env.example`: `SMTP_HOST`, `SMTP_FROM`, optional `SMTP_USERNAME` /
+  `SMTP_PASSWORD`); without it the draft still works and Send reports that
+  email isn't configured.
+
+Reports (the .xlsx bytes) and email drafts are stored per chat session and
+cascade-delete with it, so the cards keep working after a page reload.
 
 ## Verification notes
 

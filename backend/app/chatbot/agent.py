@@ -12,6 +12,7 @@ from typing import Iterator
 from openai import OpenAI
 
 from app.config import OPENAI_API_KEY, OPENAI_MODEL
+from app.chatbot.actions import ACTION_TOOLS, handle_action
 from app.chatbot.tools import TOOLS, dispatch
 
 SYSTEM_PROMPT_TEMPLATE = """You are Sarthi, a data analyst assistant for an Indian power \
@@ -56,6 +57,14 @@ filter by substation_name; about a transformer type, call get_loss_by_dt_type; \
 about a specific feeder, call get_top_loss_feeders or filter by feeder_name. \
 If unsure, call more than one tool rather than repurpose a result from the \
 wrong level.
+
+REPORTS & EMAIL: if the user asks to download/export a report, call \
+generate_report with the timeframe (date_from/date_to) and any filters -- the \
+UI then shows them a download button. If they ask to email/share a report, \
+call draft_report_email; this only PREPARES a draft that the user must review \
+and Send themselves (human-in-the-loop), so never say the email has been \
+sent -- say the draft is ready for their review, and if no recipient was \
+given, ask them to add one on the card.
 """
 
 UPLOADED_DOCS_SYSTEM_TEMPLATE = """The user has attached the following document(s) to this \
@@ -105,9 +114,11 @@ def stream_ask(
     theft,
     chat_history: list[dict] | None = None,
     uploaded_context: str | None = None,
+    session_id: str | None = None,
 ) -> Iterator[dict]:
     """chat_history: list of {"role": "user"|"assistant", "content": str} from prior turns.
     uploaded_context: concatenated extracted text of files attached to this session, if any.
+    session_id: chat session id, needed by the report/email action tools.
     """
     client = _get_client()
     messages = [{"role": "system", "content": _build_system_prompt(losses, theft)}]
@@ -118,6 +129,7 @@ def stream_ask(
     messages.append({"role": "user", "content": question})
 
     charts: list[dict] = []
+    actions: list[dict] = []
 
     for _ in range(MAX_TOOL_ROUNDS):
         stream = client.chat.completions.create(
@@ -167,18 +179,26 @@ def stream_ask(
                     kwargs = json.loads(tc["arguments"] or "{}")
                 except json.JSONDecodeError:
                     kwargs = {}
-                content, chart = dispatch(tc["name"], kwargs, losses, theft)
+                if tc["name"] in ACTION_TOOLS:
+                    content, action = handle_action(tc["name"], kwargs, session_id, losses, theft)
+                    chart = None
+                else:
+                    content, chart = dispatch(tc["name"], kwargs, losses, theft)
+                    action = None
                 if chart is not None:
                     charts.append(chart)
-                yield {"type": "tool_result", "tool": tc["name"], "chart": chart}
+                if action is not None:
+                    actions.append(action)
+                yield {"type": "tool_result", "tool": tc["name"], "chart": chart, "action": action}
                 messages.append({"role": "tool", "tool_call_id": tc["id"], "content": content})
             continue
 
-        yield {"type": "done", "answer": full_content or "", "charts": charts}
+        yield {"type": "done", "answer": full_content or "", "charts": charts, "actions": actions}
         return
 
     yield {
         "type": "done",
         "answer": "I gathered the data but couldn't finish reasoning about it in time. Try narrowing your question.",
         "charts": charts,
+        "actions": actions,
     }

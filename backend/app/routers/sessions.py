@@ -35,6 +35,7 @@ def get_messages(db: Session = Depends(get_db), session: ChatSession = Depends(g
             role=m.role,
             content=m.content,
             charts=json.loads(m.charts_json) if m.charts_json else [],
+            actions=json.loads(m.actions_json) if m.actions_json else [],
             created_at=m.created_at,
         ))
     return out

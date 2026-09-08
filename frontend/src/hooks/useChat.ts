@@ -1,16 +1,17 @@
 import { useCallback, useEffect, useState } from "react";
-import { getMessages, streamMessage, type ChatMessageOut } from "../api";
+import { getMessages, streamMessage, type ChatAction, type ChatMessageOut } from "../api";
 
 export interface UIMessage {
   id: string;
   role: "user" | "assistant";
   content: string;
   charts: Record<string, unknown>[];
+  actions: ChatAction[];
   streaming?: boolean;
 }
 
 function fromServer(m: ChatMessageOut): UIMessage {
-  return { id: String(m.id), role: m.role, content: m.content, charts: m.charts };
+  return { id: String(m.id), role: m.role, content: m.content, charts: m.charts, actions: m.actions ?? [] };
 }
 
 // While the browser tab is occluded (presenting on another display, screen
@@ -55,8 +56,8 @@ export function useChat(sessionId: string | null, onFirstMessage?: () => void) {
       const wasEmpty = messages.length === 0;
       setMessages((prev) => [
         ...prev,
-        { id: `tmp-u-${Date.now()}`, role: "user", content, charts: [] },
-        { id: `tmp-a-${Date.now()}`, role: "assistant", content: "", charts: [], streaming: true },
+        { id: `tmp-u-${Date.now()}`, role: "user", content, charts: [], actions: [] },
+        { id: `tmp-a-${Date.now()}`, role: "assistant", content: "", charts: [], actions: [], streaming: true },
       ]);
       setSending(true);
 
@@ -80,6 +81,10 @@ export function useChat(sessionId: string | null, onFirstMessage?: () => void) {
             if (event.chart) {
               flush();
               updateLastAssistant((m) => ({ ...m, charts: [...m.charts, event.chart!] }));
+            }
+            if (event.action) {
+              flush();
+              updateLastAssistant((m) => ({ ...m, actions: [...m.actions, event.action!] }));
             }
           } else if (event.type === "done") {
             if (timer != null) clearTimeout(timer);

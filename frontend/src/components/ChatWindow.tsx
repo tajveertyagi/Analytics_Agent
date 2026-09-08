@@ -97,7 +97,7 @@ export default function ChatWindow({
             </div>
           )}
           {messages.map((m) => (
-            <MessageBubble key={m.id} message={m} />
+            <MessageBubble key={m.id} message={m} sessionId={sessionId} />
           ))}
         </div>
       </div>

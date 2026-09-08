@@ -5,11 +5,16 @@ export interface ChatSessionOut {
   updated_at: string;
 }
 
+export type ChatAction =
+  | { kind: "report"; report_id: string }
+  | { kind: "email_draft"; email_id: string };
+
 export interface ChatMessageOut {
   id: number;
   role: "user" | "assistant";
   content: string;
   charts: Record<string, unknown>[];
+  actions: ChatAction[];
   created_at: string;
 }
 
@@ -75,10 +80,65 @@ export function deleteFile(sessionId: string, fileId: string) {
   return jsonFetch<{ ok: boolean }>(`/sessions/${sessionId}/files/${fileId}`, { method: "DELETE" });
 }
 
+export interface ReportMeta {
+  id: string;
+  filename: string;
+  timeframe_label: string;
+  filters_label: string;
+  download_url: string;
+  created_at: string;
+}
+
+export interface OutboundEmail {
+  id: string;
+  to: string[];
+  subject: string;
+  body: string;
+  status: "draft" | "sent" | "cancelled";
+  error: string | null;
+  created_at: string;
+  sent_at: string | null;
+  report: ReportMeta | null;
+}
+
+export function getReport(sessionId: string, reportId: string) {
+  return jsonFetch<ReportMeta>(`/sessions/${sessionId}/reports/${reportId}`);
+}
+
+export function getEmail(sessionId: string, emailId: string) {
+  return jsonFetch<OutboundEmail>(`/sessions/${sessionId}/emails/${emailId}`);
+}
+
+export function updateEmail(
+  sessionId: string,
+  emailId: string,
+  patch: { to?: string[]; subject?: string; body?: string },
+) {
+  return jsonFetch<OutboundEmail>(`/sessions/${sessionId}/emails/${emailId}`, {
+    method: "PATCH",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(patch),
+  });
+}
+
+export async function sendEmail(sessionId: string, emailId: string): Promise<OutboundEmail> {
+  const res = await fetch(`${BASE}/sessions/${sessionId}/emails/${emailId}/send`, {
+    method: "POST",
+    credentials: "include",
+  });
+  const data = await res.json().catch(() => null);
+  if (!res.ok) throw new Error(data?.detail ?? `send failed: ${res.status}`);
+  return data as OutboundEmail;
+}
+
+export function cancelEmail(sessionId: string, emailId: string) {
+  return jsonFetch<OutboundEmail>(`/sessions/${sessionId}/emails/${emailId}/cancel`, { method: "POST" });
+}
+
 export type ChatEvent =
   | { type: "token"; text: string }
-  | { type: "tool_result"; tool: string; chart: Record<string, unknown> | null }
-  | { type: "done"; answer: string; charts: Record<string, unknown>[] }
+  | { type: "tool_result"; tool: string; chart: Record<string, unknown> | null; action: ChatAction | null }
+  | { type: "done"; answer: string; charts: Record<string, unknown>[]; actions: ChatAction[] }
   | { type: "error"; message: string };
 
 /** Sends a message and streams back SSE events, parsed frame-by-frame. */

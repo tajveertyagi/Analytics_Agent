@@ -22,3 +22,10 @@ USER_COOKIE_NAME = "vidyutiq_uid"
 TOOL_CACHE_TTL_SECONDS = 300
 
 MAX_UPLOAD_BYTES = 20 * 1024 * 1024  # 20 MB
+
+SMTP_HOST = os.getenv("SMTP_HOST", "")
+SMTP_PORT = int(os.getenv("SMTP_PORT", "587"))
+SMTP_USERNAME = os.getenv("SMTP_USERNAME", "")
+SMTP_PASSWORD = os.getenv("SMTP_PASSWORD", "")
+SMTP_FROM = os.getenv("SMTP_FROM", "")
+SMTP_USE_TLS = os.getenv("SMTP_USE_TLS", "true").lower() != "false"
