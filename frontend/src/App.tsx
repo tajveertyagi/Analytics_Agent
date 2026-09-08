@@ -3,10 +3,37 @@ import Sidebar from "./components/Sidebar";
 import ChatWindow from "./components/ChatWindow";
 import { createSession, deleteSession, getMe, listSessions, type ChatSessionOut } from "./api";
 
+// Remembers which chat this browser had open, so a reload reopens that exact
+// conversation (ChatGPT does the same via its /c/<id> URL) instead of always
+// jumping to whichever session was most recently active.
+const LAST_SESSION_KEY = "sarthi:lastSessionId";
+
+function readLastSessionId(): string | null {
+  try {
+    return localStorage.getItem(LAST_SESSION_KEY);
+  } catch {
+    return null;
+  }
+}
+
+function writeLastSessionId(id: string | null) {
+  try {
+    if (id) localStorage.setItem(LAST_SESSION_KEY, id);
+    else localStorage.removeItem(LAST_SESSION_KEY);
+  } catch {
+    // localStorage unavailable (private browsing, storage blocked) -- fine, just no memory across reloads.
+  }
+}
+
 function App() {
   const [sessions, setSessions] = useState<ChatSessionOut[]>([]);
-  const [activeId, setActiveId] = useState<string | null>(null);
+  const [activeId, setActiveIdState] = useState<string | null>(null);
   const [ready, setReady] = useState(false);
+
+  const setActiveId = useCallback((id: string | null) => {
+    setActiveIdState(id);
+    writeLastSessionId(id);
+  }, []);
 
   const refreshSessions = useCallback(async () => {
     const list = await listSessions();
@@ -18,7 +45,11 @@ function App() {
     (async () => {
       await getMe();
       const list = await refreshSessions();
-      if (list.length > 0) {
+      const lastId = readLastSessionId();
+      const remembered = list.find((s) => s.id === lastId);
+      if (remembered) {
+        setActiveId(remembered.id);
+      } else if (list.length > 0) {
         setActiveId(list[0].id);
       } else {
         const s = await createSession();
@@ -27,13 +58,13 @@ function App() {
       }
       setReady(true);
     })();
-  }, [refreshSessions]);
+  }, [refreshSessions, setActiveId]);
 
   const handleNew = useCallback(async () => {
     const s = await createSession();
     setSessions((prev) => [s, ...prev]);
     setActiveId(s.id);
-  }, []);
+  }, [setActiveId]);
 
   const handleDelete = useCallback(
     async (id: string) => {
@@ -44,7 +75,7 @@ function App() {
         setActiveId(remaining[0]?.id ?? null);
       }
     },
-    [sessions, activeId],
+    [sessions, activeId, setActiveId],
   );
 
   if (!ready) {
